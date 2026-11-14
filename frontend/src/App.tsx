@@ -52,7 +52,7 @@ function App() {
           </p>
           <h1 className="mt-2 text-3xl font-bold">Equipos mineros</h1>
           <p className="mt-2 text-slate-600">
-            Consulta los equipos registrados y sus horas de uso.
+            Consulta tus equipos mineros y sus horas de uso.
           </p>
         </header>
         <section
