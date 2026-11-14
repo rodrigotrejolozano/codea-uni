@@ -27,7 +27,7 @@ El backend y el frontend se generaron con Nest CLI y `create-vite`, respectivame
 
 ## Despliegue
 
-El frontend y el backend se despliegan como servicios separados. Configura `VITE_API_URL` con la URL pública de la API al construir el frontend, y `DATABASE_URL`, `FRONTEND_URL` y `PORT` en el backend. Ejecuta `npx prisma migrate deploy` contra la base de datos de destino. La automatización del despliegue y la configuración de los proveedores están pendientes.
+El frontend y el backend se despliegan como servicios separados mediante `./deploy.sh`. Consulta los requisitos, la configuración inicial y las verificaciones en [la guía de despliegue](docs/despliegue.md).
 
 No publiques archivos `.env` ni credenciales. Las variables de `VITE_` se incluyen en el frontend y son públicas.
 
