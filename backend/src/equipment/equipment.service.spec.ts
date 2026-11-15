@@ -20,6 +20,11 @@ describe('EquipmentService', () => {
   it('returns equipment ordered by code', async () => {
     findMany.mockResolvedValue([]);
     await expect(service.findAll()).resolves.toEqual([]);
-    expect(findMany).toHaveBeenCalledWith({ orderBy: { code: 'asc' } });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { deletedAt: null },
+        orderBy: { code: 'asc' },
+      }),
+    );
   });
 });
