@@ -30,6 +30,31 @@ for tool in git node npm npx render curl tar mktemp cp; do
   command -v "$tool" >/dev/null || fail "Falta la herramienta: $tool"
 done
 
+stage='lectura de deploy.env'
+[[ -f deploy.env && -r deploy.env ]] || fail 'No se puede leer deploy.env; copia deploy.env.example y configura sus valores'
+unset RENDER_SERVICE_ID FRONTEND_URL BACKEND_URL DEPLOY_BRANCH
+declare -A seen_config=()
+line_number=0
+while IFS= read -r line || [[ -n "$line" ]]; do
+  ((line_number += 1))
+  line="${line%$'\r'}"
+  [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+  if [[ ! "$line" =~ ^[[:space:]]*(RENDER_SERVICE_ID|FRONTEND_URL|BACKEND_URL|DEPLOY_BRANCH)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
+    fail "Entrada inválida en deploy.env, línea $line_number; usa NOMBRE=valor"
+  fi
+  key="${BASH_REMATCH[1]}"
+  value="${BASH_REMATCH[2]}"
+  value="${value%"${value##*[![:space:]]}"}"
+  [[ ! ${seen_config[$key]+present} ]] || fail "Variable duplicada en deploy.env: $key"
+  seen_config[$key]=1
+  if [[ "$value" =~ ^\"([^\"]*)\"$ || "$value" =~ ^\'([^\']*)\'$ ]]; then
+    value="${BASH_REMATCH[1]}"
+  elif [[ "$value" =~ [[:space:]\"\'] ]]; then
+    fail "Valor inválido en deploy.env, línea $line_number"
+  fi
+  printf -v "$key" '%s' "$value"
+done < deploy.env
+
 : "${RENDER_SERVICE_ID:?Configura RENDER_SERVICE_ID con el ID del servicio web de Render}"
 : "${FRONTEND_URL:?Configura FRONTEND_URL con la URL pública del frontend}"
 : "${BACKEND_URL:?Configura BACKEND_URL con la URL pública del backend}"
