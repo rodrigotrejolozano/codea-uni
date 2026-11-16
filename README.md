@@ -25,7 +25,12 @@ La aplicación permite crear, listar, editar y eliminar equipos, registrar mante
 - El ciclo es el horómetro total actual menos la lectura del último mantenimiento, o cero si no hay historial. Al llegar o superar el intervalo, el equipo requiere mantenimiento.
 - Registrar un mantenimiento guarda la fecha y lectura actuales y reinicia el ciclo sin borrar horas acumuladas. El horómetro no puede disminuir.
 - Cambiar el tipo recalcula el estado con el intervalo del tipo nuevo, sin reiniciar el ciclo.
-- Eliminar un equipo lo oculta del listado y conserva el historial; el código sigue reservado y no puede volver a usarse.
+- Eliminar un equipo lo marca como eliminado y conserva su historial; no puede reactivarse ni modificarse. Su código puede reutilizarse en otro equipo, pero no puede haber dos equipos activos con el mismo código.
+- Los equipos e historiales se consultan en páginas de 10 elementos por defecto. Los endpoints aceptan `page` y `limit` (máximo 100) y devuelven `data`, `page`, `limit`, `total` y `totalPages`.
+- La fecha `performedAt` es la fecha automática en que se registró el mantenimiento.
+- La unicidad de códigos activos se garantiza con el índice parcial PostgreSQL `Equipment_active_code_key` de la migración SQL. Revisa las migraciones futuras para no eliminarlo accidentalmente.
+
+La paginación cambia el formato anterior de las respuestas de listado e historial: frontend y backend deben actualizarse juntos. Durante un despliegue secuencial puede haber una ventana breve de incompatibilidad.
 
 ## Pruebas de integración con PostgreSQL
 
