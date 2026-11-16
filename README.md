@@ -2,6 +2,12 @@
 
 Aplicación para administrar equipos mineros y sus mantenimientos, compuesta por un frontend React, una API NestJS y una base de datos PostgreSQL administrada con Prisma.
 
+## Aplicación publicada
+
+- Frontend: https://codea-uni.vercel.app/
+- Backend: https://codea-uni-api.onrender.com/
+- Estado de la API: https://codea-uni-api.onrender.com/health
+
 ## Requisitos
 
 - Node.js 24 y npm (versión recomendada para las herramientas generadas).
@@ -56,10 +62,17 @@ El backend y el frontend se generaron con Nest CLI y `create-vite`, respectivame
 
 ## Despliegue
 
-El frontend y el backend se despliegan como servicios separados mediante `./deploy.sh`. Consulta los requisitos, la configuración inicial y las verificaciones en [la guía de despliegue](docs/despliegue.md).
+El frontend y el backend se despliegan como servicios separados mediante `./deploy.sh`:
+
+1. Instala y autentica Render CLI y Vercel CLI, y vincula el repositorio al proyecto de Vercel.
+2. Copia `deploy.env.example` a `deploy.env` y configura ahí `RENDER_SERVICE_ID`, `FRONTEND_URL`, `BACKEND_URL` y `DEPLOY_BRANCH`. El archivo local está ignorado por Git.
+3. Confirma y sube los cambios a la rama configurada en GitHub. El repositorio local debe estar limpio y coincidir con esa rama remota.
+4. Desde la raíz, ejecuta `./deploy.sh` y espera el resultado de ambos servicios y las comprobaciones finales.
+
+Consulta los requisitos, la configuración inicial de las plataformas y la solución de problemas en [la guía de despliegue](docs/despliegue.md).
 
 No publiques archivos `.env` ni credenciales. Las variables de `VITE_` se incluyen en el frontend y son públicas.
 
 ## Uso de IA
 
-La base inicial se desarrolló con asistencia de OpenCode (GPT-6.1 Terra). El código y las decisiones deben ser revisados y comprendidos antes de la entrega.
+Se utilizó OpenCode (GPT-6.1 Terra) como asistencia para el desarrollo, las pruebas y la documentación. Las decisiones, la lógica principal, la revisión y las correcciones fueron realizadas y verificadas por el autor.

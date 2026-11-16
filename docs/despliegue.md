@@ -39,14 +39,13 @@ El Start Command revisa migraciones antes de cada arranque, incluidos reinicios 
 
 ## Ejecutar el despliegue
 
-Define las variables en tu terminal usando `deploy.env.example` como referencia. No copies estos valores al repositorio si contienen información sensible:
+Desde la raíz, crea el archivo local una sola vez:
 
 ```bash
-export RENDER_SERVICE_ID='srv-id-del-servicio'
-export FRONTEND_URL='https://tu-frontend.vercel.app'
-export BACKEND_URL='https://tu-backend.onrender.com'
-export DEPLOY_BRANCH='main'
+cp deploy.env.example deploy.env
 ```
+
+Edita `deploy.env` con el ID del servicio y las URL correspondientes. Admite líneas `NOMBRE=valor`, comillas simples o dobles alrededor de un valor, y comentarios en líneas separadas. No interpreta comandos ni expande variables. El script lee el archivo automáticamente y sus valores prevalecen sobre las variables que estén exportadas en la terminal. El archivo local está ignorado por Git; no guardes tokens ni contraseñas en él.
 
 Después de revisar los cambios, crea el commit y súbelo a la rama configurada. Desde la raíz:
 
@@ -57,11 +56,14 @@ git push origin main
 
 El script comprueba el árbol de trabajo, la rama y el SHA remoto; verifica acceso a las plataformas; crea un directorio temporal con `git archive`; despliega el mismo SHA en Render y su contenido versionado en Vercel; espera los resultados y comprueba las URL. Render ejecuta las migraciones como parte del arranque. El script elimina únicamente su directorio temporal al finalizar.
 
+Para probar la lectura de `deploy.env` sin publicar ni conectarse a Render o Vercel, ejecuta `bash tests/deploy-config.test.sh`. Estas pruebas usan repositorios temporales locales y comandos simulados; no sustituyen una prueba real del despliegue.
+
 Una respuesta HTTP exitosa del frontend comprueba disponibilidad, no que todas las funciones de React operen correctamente. Revisa también la aplicación desde un navegador. El despliegue no es transaccional: si Vercel falla después de Render, podría haber versiones diferentes. No existe rollback automático.
 
 ## Resolución de problemas
 
 - **GitHub no se puede consultar:** comprueba acceso a `origin` y credenciales en la terminal. No se despliega si no se puede verificar el SHA remoto.
+- **Falta `deploy.env` o contiene errores:** copia `deploy.env.example`, completa las cuatro variables una sola vez y revisa el formato indicado arriba.
 - **Rama o commit no coinciden:** confirma que estás en `DEPLOY_BRANCH`, revisa cambios y sube el commit antes de reintentar.
 - **CLI sin sesión o sin acceso:** repite `render login` o `npx vercel login`, verifica el workspace y vuelve a vincular el proyecto con `npx vercel link` si es necesario.
 - **Render tarda o `/health` falla:** revisa los logs del despliegue, variables, migraciones y disponibilidad de PostgreSQL. El plan gratuito duerme por inactividad.
