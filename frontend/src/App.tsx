@@ -107,7 +107,7 @@ function App() {
       <div className="mx-auto max-w-281">
         <header className="mb-8">
           <p className="text-xs font-bold tracking-wider text-emerald-700 uppercase">
-            Gestión de activos - Reto CODEA UNI
+            Gestión de activos
           </p>
           <h1 className="mt-2 text-3xl font-bold">Equipos mineros</h1>
           <p className="mt-2 text-slate-600">
