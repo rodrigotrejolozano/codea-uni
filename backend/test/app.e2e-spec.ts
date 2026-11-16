@@ -51,7 +51,7 @@ describe('AppController (e2e)', () => {
     request(app.getHttpServer())
       .get('/equipment')
       .expect(200)
-      .expect({ data: [], page: 1, limit: 10, total: 0, totalPages: 0 }));
+      .expect({ data: [], page: 1, limit: 5, total: 0, totalPages: 0 }));
 
   afterEach(async () => {
     await app.close();

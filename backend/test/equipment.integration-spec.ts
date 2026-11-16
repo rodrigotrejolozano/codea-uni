@@ -17,6 +17,7 @@ describe('Equipment API with PostgreSQL', () => {
   let prisma: PrismaService;
   let id: string;
   let replacementId: string;
+  const paginationIds: string[] = [];
   const code = `test-${randomUUID()}`;
 
   beforeAll(async () => {
@@ -42,7 +43,41 @@ describe('Equipment API with PostgreSQL', () => {
     }
     if (prisma && replacementId)
       await prisma.equipment.deleteMany({ where: { id: replacementId } });
+    if (prisma && paginationIds.length) {
+      await prisma.maintenance.deleteMany({
+        where: { equipmentId: { in: paginationIds } },
+      });
+      await prisma.equipment.deleteMany({
+        where: { id: { in: paginationIds } },
+      });
+    }
     if (app) await app.close();
+  });
+
+  it('defaults both paginated endpoints to five records', async () => {
+    for (let i = 0; i < 6; i++) {
+      const response = await request(app.getHttpServer())
+        .post('/equipment')
+        .send({ code: `page-${randomUUID()}`, type: 'TRUCK', hourMeter: 0 })
+        .expect(201);
+      paginationIds.push(response.body.id as string);
+    }
+    const list = await request(app.getHttpServer())
+      .get('/equipment')
+      .expect(200);
+    expect(list.body.limit).toBe(5);
+    expect(list.body.data).toHaveLength(5);
+    for (let i = 0; i < 6; i++)
+      await request(app.getHttpServer())
+        .post(`/equipment/${paginationIds[0]}/maintenances`)
+        .expect(201);
+    const history = await request(app.getHttpServer())
+      .get(`/equipment/${paginationIds[0]}/maintenances`)
+      .expect(200);
+    expect(history.body.limit).toBe(5);
+    expect(history.body.data).toHaveLength(5);
+    expect(history.body.total).toBe(6);
+    expect(history.body.totalPages).toBe(2);
   });
 
   it('validates and completes the maintenance lifecycle', async () => {
