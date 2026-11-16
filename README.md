@@ -26,7 +26,7 @@ La aplicación permite crear, listar, editar y eliminar equipos, registrar mante
 - Registrar un mantenimiento guarda la fecha y lectura actuales y reinicia el ciclo sin borrar horas acumuladas. El horómetro no puede disminuir.
 - Cambiar el tipo recalcula el estado con el intervalo del tipo nuevo, sin reiniciar el ciclo.
 - Eliminar un equipo lo marca como eliminado y conserva su historial; no puede reactivarse ni modificarse. Su código puede reutilizarse en otro equipo, pero no puede haber dos equipos activos con el mismo código.
-- Los equipos e historiales se consultan en páginas de 10 elementos por defecto. Los endpoints aceptan `page` y `limit` (máximo 100) y devuelven `data`, `page`, `limit`, `total` y `totalPages`.
+- Los equipos e historiales se consultan en páginas de 5 elementos por defecto. Los endpoints aceptan `page` y `limit` (máximo 100) y devuelven `data`, `page`, `limit`, `total` y `totalPages`.
 - La fecha `performedAt` es la fecha automática en que se registró el mantenimiento.
 - La unicidad de códigos activos se garantiza con el índice parcial PostgreSQL `Equipment_active_code_key` de la migración SQL. Revisa las migraciones futuras para no eliminarlo accidentalmente.
 
