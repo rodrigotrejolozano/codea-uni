@@ -1,158 +1,36 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import type { Equipment, EquipmentInput, EquipmentType } from './api';
+import { EquipmentForm } from './components/EquipmentForm';
 import {
-  api,
-  type Equipment,
-  type EquipmentInput,
-  type EquipmentType,
-  type Maintenance,
-} from './api';
+  useEquipment,
+  useEquipmentMutations,
+  useHistory,
+} from './equipment/queries';
 
 const labels: Record<EquipmentType, string> = {
   TRUCK: 'Camión',
   EXCAVATOR: 'Excavadora',
   DRILL: 'Perforadora',
 };
-const inputClass = 'mt-1 w-full rounded border border-slate-300 px-3 py-2';
 const buttonClass =
-  'rounded bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50';
-
-function EquipmentForm({
-  equipment,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  equipment: Equipment | null;
-  busy: boolean;
-  onCancel: () => void;
-  onSave: (value: EquipmentInput) => Promise<void>;
-}) {
-  const [code, setCode] = useState(equipment?.code ?? '');
-  const [type, setType] = useState<EquipmentType>(equipment?.type ?? 'TRUCK');
-  const [hours, setHours] = useState(String(equipment?.hourMeter ?? 0));
-  const [error, setError] = useState('');
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const hourMeter = Number(hours);
-    if (
-      !code.trim() ||
-      hours.trim() === '' ||
-      !Number.isInteger(hourMeter) ||
-      hourMeter < (equipment?.hourMeter ?? 0) ||
-      hourMeter > 2147483647
-    ) {
-      setError(
-        'Ingresa un código y un horómetro entero válido que no disminuya.',
-      );
-      return;
-    }
-    setError('');
-    void onSave({ code: code.trim(), type, hourMeter });
-  }
-  return (
-    <form
-      onSubmit={submit}
-      className="mb-6 space-y-4 rounded-xl border border-slate-200 bg-white p-5"
-    >
-      <h2 className="text-xl font-semibold">
-        {equipment ? 'Editar equipo' : 'Nuevo equipo'}
-      </h2>
-      <label className="block">
-        Código
-        <input
-          className={inputClass}
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          maxLength={100}
-          required
-        />
-      </label>
-      <label className="block">
-        Tipo
-        <select
-          className={inputClass}
-          value={type}
-          onChange={(e) => setType(e.target.value as EquipmentType)}
-        >
-          {Object.entries(labels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-      {equipment && (
-        <p className="text-sm text-slate-600">
-          Cambiar el tipo recalcula el intervalo sin reiniciar el ciclo.
-        </p>
-      )}
-      <label className="block">
-        Horómetro (horas)
-        <input
-          className={inputClass}
-          type="number"
-          min={equipment?.hourMeter ?? 0}
-          max={2147483647}
-          step="1"
-          value={hours}
-          onChange={(e) => setHours(e.target.value)}
-          required
-        />
-      </label>
-      {error && (
-        <p role="alert" className="text-red-700">
-          {error}
-        </p>
-      )}
-      <div className="flex gap-3">
-        <button className={buttonClass} disabled={busy}>
-          Guardar
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={busy}
-          className="rounded border px-3 py-2"
-        >
-          Cancelar
-        </button>
-      </div>
-    </form>
-  );
-}
+  'cursor-pointer rounded bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50';
 
 function App() {
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [page, setPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const equipmentQuery = useEquipment(page);
+  const mutations = useEquipmentMutations();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState<'closed' | 'new' | Equipment>('closed');
+  const [historyEquipment, setHistoryEquipment] = useState<Equipment | null>(
+    null,
+  );
+  const history = useHistory(historyEquipment?.id ?? null, historyPage);
   const [busy, setBusy] = useState(false);
-  const [history, setHistory] = useState<{
-    equipment: Equipment;
-    entries: Maintenance[];
-  } | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    api
-      .list(controller.signal)
-      .then(setEquipment)
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setLoadFailed(true);
-          setError(
-            'No fue posible cargar los equipos. Verifica la conexión e inténtalo de nuevo.',
-          );
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, []);
+  const equipment = equipmentQuery.data?.data ?? [];
+  const loading = equipmentQuery.isPending;
+  const loadFailed = equipmentQuery.isError && !equipmentQuery.data;
 
   async function run(action: () => Promise<void>, success?: string) {
     setBusy(true);
@@ -172,18 +50,23 @@ function App() {
     }
   }
 
-  async function save(data: EquipmentInput) {
-    await run(async () => {
-      const updated =
-        form === 'new'
-          ? await api.create(data)
-          : await api.update((form as Equipment).id, data);
-      setEquipment((items) =>
-        [...items.filter((item) => item.id !== updated.id), updated].sort(
-          (a, b) => a.code.localeCompare(b.code),
-        ),
+  async function refreshAfterSave(message: string, id?: string) {
+    try {
+      await mutations.refresh(page, id);
+    } catch {
+      throw new Error(
+        `${message}, pero no se pudo actualizar la lista. Recarga la página.`,
       );
+    }
+  }
+
+  async function save(data: EquipmentInput) {
+    if (form === 'closed') return;
+    await run(async () => {
+      if (form === 'new') await mutations.create.mutateAsync(data);
+      else await mutations.update.mutateAsync({ id: form.id, data });
       setForm('closed');
+      await refreshAfterSave('El equipo se guardó');
     }, 'Equipo guardado.');
   }
 
@@ -195,34 +78,28 @@ function App() {
     )
       return;
     void run(async () => {
-      await api.maintain(item.id);
-      try {
-        setEquipment(await api.list());
-      } catch {
-        throw new Error(
-          'El mantenimiento se registró, pero no se pudo actualizar la lista. Recarga la página.',
-        );
-      }
-      setHistory(null);
+      await mutations.maintain.mutateAsync(item.id);
+      setHistoryEquipment(null);
+      await refreshAfterSave('El mantenimiento se registró', item.id);
     }, 'Mantenimiento registrado.');
   }
   function remove(item: Equipment) {
     if (
       !window.confirm(
-        `¿Eliminar ${item.code}? El equipo se retirará del listado y su historial se conservará.`,
+        `¿Eliminar ${item.code}? Se marcará como eliminado y conservará su historial.`,
       )
     )
       return;
     void run(async () => {
-      await api.remove(item.id);
-      setEquipment((items) => items.filter((entry) => entry.id !== item.id));
-      setHistory(null);
+      await mutations.remove.mutateAsync(item.id);
+      setHistoryEquipment(null);
+      await refreshAfterSave('El equipo se eliminó', item.id);
     }, 'Equipo eliminado.');
   }
   function showHistory(item: Equipment) {
-    void run(async () =>
-      setHistory({ equipment: item, entries: await api.history(item.id) }),
-    );
+    setError('');
+    setHistoryPage(1);
+    setHistoryEquipment(item);
   }
 
   return (
@@ -237,9 +114,35 @@ function App() {
             Consulta tus equipos mineros y sus horas de uso.
           </p>
         </header>
-        {error && (
+        <details className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <summary className="cursor-pointer font-semibold">
+            ¿Cómo funcionan los mantenimientos?
+          </summary>
+          <div className="mt-3 space-y-2 text-sm text-slate-700">
+            <p>
+              Intervalos: camión 250 h, excavadora 500 h y perforadora 300 h.
+            </p>
+            <p>
+              El horómetro refleja las horas totales y no puede disminuir. Sin
+              historial, el ciclo se calcula desde 0.
+            </p>
+            <p>
+              Registrar un mantenimiento inicia un nuevo ciclo desde la lectura
+              actual sin poner el horómetro en cero. Cambiar el tipo recalcula
+              el intervalo sin reiniciar el ciclo.
+            </p>
+            <p>
+              Un equipo eliminado conserva su historial y su código puede usarse
+              en otro equipo activo.
+            </p>
+          </div>
+        </details>
+        {(error ||
+          (loadFailed &&
+            'No fue posible cargar los equipos. Verifica la conexión e inténtalo de nuevo.')) && (
           <p role="alert" className="mb-4 rounded bg-red-50 p-3 text-red-700">
-            {error}
+            {error ||
+              'No fue posible cargar los equipos. Verifica la conexión e inténtalo de nuevo.'}
           </p>
         )}
         {notice && (
@@ -290,6 +193,7 @@ function App() {
                       'Código',
                       'Tipo',
                       'Horómetro',
+                      'Estado',
                       'Mantenimiento',
                       'Acciones',
                     ].map((column) => (
@@ -315,36 +219,55 @@ function App() {
                         {item.hourMeter} h
                       </td>
                       <td className="border-b border-slate-100 p-3">
+                        {item.deletedAt ? 'Eliminado' : 'Activo'}
+                        <div className="text-xs text-slate-500">
+                          Creado:{' '}
+                          {new Date(item.createdAt).toLocaleDateString('es')} ·
+                          ID: {item.id.slice(0, 8)}
+                        </div>
+                      </td>
+                      <td className="border-b border-slate-100 p-3">
                         <strong
                           className={
-                            item.requiresMaintenance
-                              ? 'text-red-700'
-                              : 'text-emerald-700'
+                            item.deletedAt
+                              ? 'text-slate-500'
+                              : item.requiresMaintenance
+                                ? 'text-red-700'
+                                : 'text-emerald-700'
                           }
                         >
-                          {item.requiresMaintenance
-                            ? 'Requiere mantenimiento'
-                            : 'Al día'}
+                          {item.deletedAt
+                            ? 'No aplica'
+                            : item.requiresMaintenance
+                              ? 'Requiere mantenimiento'
+                              : 'Al día'}
                         </strong>
                         <div>
-                          {item.hoursSinceMaintenance} / {item.intervalHours} h
+                          {!item.deletedAt &&
+                            `${item.hoursSinceMaintenance} / ${item.intervalHours} h`}
                         </div>
                       </td>
                       <td className="border-b border-slate-100 p-3">
                         <div className="flex min-w-48 flex-wrap gap-2">
-                          {[
-                            ['Editar', () => setForm(item)],
-                            ['Registrar mantenimiento', () => maintain(item)],
-                            ['Historial', () => showHistory(item)],
-                            ['Eliminar', () => remove(item)],
-                          ].map(([label, action]) => (
+                          {(item.deletedAt
+                            ? [['Historial', () => showHistory(item)]]
+                            : [
+                                ['Editar', () => setForm(item)],
+                                [
+                                  'Registrar mantenimiento',
+                                  () => maintain(item),
+                                ],
+                                ['Historial', () => showHistory(item)],
+                                ['Eliminar', () => remove(item)],
+                              ]
+                          ).map(([label, action]) => (
                             <button
                               key={label as string}
                               type="button"
                               disabled={busy}
                               onClick={action as () => void}
                               aria-label={`${label as string} ${item.code}`}
-                              className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+                              className="cursor-pointer rounded border border-slate-300 px-2 py-1 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {label as string}
                             </button>
@@ -357,34 +280,101 @@ function App() {
               </table>
             </div>
           )}
+          {equipmentQuery.data && equipmentQuery.data.totalPages > 1 && (
+            <nav
+              aria-label="Paginación de equipos"
+              className="mt-4 flex items-center gap-3"
+            >
+              <button
+                className="cursor-pointer rounded border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={page <= 1 || busy}
+                onClick={() => setPage(page - 1)}
+              >
+                Anterior
+              </button>
+              <span>
+                Página {page} de {equipmentQuery.data.totalPages} ·{' '}
+                {equipmentQuery.data.total} equipos
+              </span>
+              <button
+                className="cursor-pointer rounded border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={page >= equipmentQuery.data.totalPages || busy}
+                onClick={() => setPage(page + 1)}
+              >
+                Siguiente
+              </button>
+            </nav>
+          )}
         </section>
-        {history && (
+        {historyEquipment && (
           <section
             aria-labelledby="history-title"
             className="mt-6 rounded-xl border border-slate-200 bg-white p-6"
           >
             <div className="flex justify-between gap-3">
               <h2 id="history-title" className="text-xl font-semibold">
-                Historial de {history.equipment.code}
+                Historial de {historyEquipment.code}{' '}
+                {historyEquipment.deletedAt ? '(Eliminado)' : '(Activo)'}
               </h2>
               <button
-                onClick={() => setHistory(null)}
-                className="rounded border px-3 py-1"
+                onClick={() => setHistoryEquipment(null)}
+                className="cursor-pointer rounded border px-3 py-1"
               >
                 Cerrar
               </button>
             </div>
-            {history.entries.length === 0 ? (
+            {history.isPending ? (
+              <p role="status" className="mt-4">
+                Cargando historial…
+              </p>
+            ) : history.isError ? (
+              <p role="alert" className="mt-4 text-red-700">
+                No fue posible cargar el historial.{' '}
+                <button
+                  type="button"
+                  onClick={() => void history.refetch()}
+                  className="cursor-pointer underline"
+                >
+                  Reintentar
+                </button>
+              </p>
+            ) : history.data.data.length === 0 ? (
               <p className="mt-4">No hay mantenimientos registrados.</p>
             ) : (
               <ul className="mt-4 space-y-2">
-                {history.entries.map((entry) => (
+                {history.data.data.map((entry) => (
                   <li key={entry.id}>
+                    Fecha de registro:{' '}
                     {new Date(entry.performedAt).toLocaleString('es')} —{' '}
                     {entry.hourMeter} h
                   </li>
                 ))}
               </ul>
+            )}
+            {history.data && history.data.totalPages > 1 && (
+              <nav
+                aria-label="Paginación de historial"
+                className="mt-4 flex items-center gap-3"
+              >
+                <button
+                  className="cursor-pointer rounded border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={historyPage <= 1}
+                  onClick={() => setHistoryPage(historyPage - 1)}
+                >
+                  Anterior
+                </button>
+                <span>
+                  Página {historyPage} de {history.data.totalPages} ·{' '}
+                  {history.data.total} registros
+                </span>
+                <button
+                  className="cursor-pointer rounded border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={historyPage >= history.data.totalPages}
+                  onClick={() => setHistoryPage(historyPage + 1)}
+                >
+                  Siguiente
+                </button>
+              </nav>
             )}
           </section>
         )}

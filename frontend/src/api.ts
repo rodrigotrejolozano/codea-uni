@@ -7,12 +7,21 @@ export type Equipment = {
   intervalHours: number;
   hoursSinceMaintenance: number;
   requiresMaintenance: boolean;
+  deletedAt: string | null;
+  createdAt: string;
 };
 export type EquipmentInput = Pick<Equipment, 'code' | 'type' | 'hourMeter'>;
 export type Maintenance = {
   id: string;
   hourMeter: number;
   performedAt: string;
+};
+export type Paginated<T> = {
+  data: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -41,8 +50,10 @@ const json = (method: string, body: EquipmentInput): RequestInit => ({
   body: JSON.stringify(body),
 });
 export const api = {
-  list: (signal?: AbortSignal) =>
-    request<Equipment[]>('/equipment', { signal }),
+  list: (page: number, signal?: AbortSignal) =>
+    request<Paginated<Equipment>>(`/equipment?page=${page}&limit=10`, {
+      signal,
+    }),
   create: (data: EquipmentInput) =>
     request<Equipment>('/equipment', json('POST', data)),
   update: (id: string, data: EquipmentInput) =>
@@ -52,8 +63,11 @@ export const api = {
     ),
   remove: (id: string) =>
     request<void>(`/equipment/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  history: (id: string) =>
-    request<Maintenance[]>(`/equipment/${encodeURIComponent(id)}/maintenances`),
+  history: (id: string, page: number, signal?: AbortSignal) =>
+    request<Paginated<Maintenance>>(
+      `/equipment/${encodeURIComponent(id)}/maintenances?page=${page}&limit=10`,
+      { signal },
+    ),
   maintain: (id: string) =>
     request<Maintenance>(`/equipment/${encodeURIComponent(id)}/maintenances`, {
       method: 'POST',
