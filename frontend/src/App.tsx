@@ -104,10 +104,10 @@ function App() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-5 py-12 text-slate-800">
-      <div className="mx-auto max-w-[1124px]">
+      <div className="mx-auto max-w-281">
         <header className="mb-8">
           <p className="text-xs font-bold tracking-wider text-emerald-700 uppercase">
-            Gestión de activos
+            Gestión de activos - Reto CODEA UNI
           </p>
           <h1 className="mt-2 text-3xl font-bold">Equipos mineros</h1>
           <p className="mt-2 text-slate-600">
