@@ -6,49 +6,40 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { maintenanceStatus } from './maintenance-rules.js';
+import { includeLatest, present } from './equipment.mapper.js';
+import type { PaginationDto } from './dto/pagination/pagination.dto.js';
 import type { CreateEquipmentDto } from './dto/create-equipment.dto/create-equipment.dto.js';
 import type { UpdateEquipmentDto } from './dto/update-equipment.dto/update-equipment.dto.js';
-
-const includeLatest = {
-  maintenances: {
-    orderBy: [{ hourMeter: 'desc' as const }, { performedAt: 'desc' as const }],
-    take: 1,
-  },
-};
-type WithLatest = Prisma.EquipmentGetPayload<{ include: typeof includeLatest }>;
-
-function present({
-  maintenances,
-  deletedAt: _deletedAt,
-  ...equipment
-}: WithLatest) {
-  return {
-    ...equipment,
-    ...maintenanceStatus(
-      equipment.type,
-      equipment.hourMeter,
-      maintenances[0]?.hourMeter ?? 0,
-    ),
-  };
-}
 
 @Injectable()
 export class EquipmentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
-    const equipment = await this.prisma.equipment.findMany({
-      where: { deletedAt: null },
-      orderBy: { code: 'asc' },
-      include: includeLatest,
-    });
-    return equipment.map(present);
+  async findAll({ page, limit }: PaginationDto) {
+    const [equipment, total] = await this.prisma.$transaction(
+      [
+        this.prisma.equipment.findMany({
+          orderBy: [{ code: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
+          include: includeLatest,
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        this.prisma.equipment.count(),
+      ],
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    return {
+      data: equipment.map(present),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string) {
     const equipment = await this.prisma.equipment.findFirst({
-      where: { id, deletedAt: null },
+      where: { id },
       include: includeLatest,
     });
     if (!equipment) throw new NotFoundException('Equipo no encontrado');
@@ -104,12 +95,21 @@ export class EquipmentService {
     });
   }
 
-  async history(id: string) {
+  async history(id: string, { page, limit }: PaginationDto) {
     await this.findOne(id);
-    return this.prisma.maintenance.findMany({
-      where: { equipmentId: id },
-      orderBy: [{ performedAt: 'desc' }, { id: 'desc' }],
-    });
+    const [data, total] = await this.prisma.$transaction(
+      [
+        this.prisma.maintenance.findMany({
+          where: { equipmentId: id },
+          orderBy: [{ performedAt: 'desc' }, { id: 'desc' }],
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        this.prisma.maintenance.count({ where: { equipmentId: id } }),
+      ],
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    return { data, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
 
   async registerMaintenance(id: string) {

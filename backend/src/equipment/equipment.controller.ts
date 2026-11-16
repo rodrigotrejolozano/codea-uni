@@ -7,16 +7,18 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { EquipmentService } from './equipment.service.js';
 import { CreateEquipmentDto } from './dto/create-equipment.dto/create-equipment.dto.js';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto/update-equipment.dto.js';
+import { PaginationDto } from './dto/pagination/pagination.dto.js';
 
 @Controller('equipment')
 export class EquipmentController {
   constructor(private readonly equipmentService: EquipmentService) {}
-  @Get() findAll() {
-    return this.equipmentService.findAll();
+  @Get() findAll(@Query() pagination: PaginationDto) {
+    return this.equipmentService.findAll(pagination);
   }
   @Get(':id') findOne(@Param('id') id: string) {
     return this.equipmentService.findOne(id);
@@ -33,8 +35,11 @@ export class EquipmentController {
   @Delete(':id') @HttpCode(204) remove(@Param('id') id: string) {
     return this.equipmentService.remove(id);
   }
-  @Get(':id/maintenances') history(@Param('id') id: string) {
-    return this.equipmentService.history(id);
+  @Get(':id/maintenances') history(
+    @Param('id') id: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.equipmentService.history(id, pagination);
   }
   @Post(':id/maintenances') registerMaintenance(@Param('id') id: string) {
     return this.equipmentService.registerMaintenance(id);

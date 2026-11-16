@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from './../src/app.module.js';
@@ -15,11 +15,22 @@ describe('AppController (e2e)', () => {
       .overrideProvider(PrismaService)
       .useValue({
         $queryRaw: vi.fn().mockResolvedValue([{ result: 1 }]),
-        equipment: { findMany: vi.fn().mockResolvedValue([]) },
+        equipment: {
+          findMany: vi.fn().mockResolvedValue([]),
+          count: vi.fn().mockResolvedValue(0),
+        },
+        $transaction: (queries: Promise<unknown>[]) => Promise.all(queries),
       })
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
   });
 
@@ -37,7 +48,10 @@ describe('AppController (e2e)', () => {
       .expect({ status: 'ok', database: 'up' }));
 
   it('/equipment (GET)', () =>
-    request(app.getHttpServer()).get('/equipment').expect(200).expect([]));
+    request(app.getHttpServer())
+      .get('/equipment')
+      .expect(200)
+      .expect({ data: [], page: 1, limit: 10, total: 0, totalPages: 0 }));
 
   afterEach(async () => {
     await app.close();

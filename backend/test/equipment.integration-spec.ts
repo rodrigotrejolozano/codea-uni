@@ -16,6 +16,7 @@ describe('Equipment API with PostgreSQL', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let id: string;
+  let replacementId: string;
   const code = `test-${randomUUID()}`;
 
   beforeAll(async () => {
@@ -39,6 +40,8 @@ describe('Equipment API with PostgreSQL', () => {
       await prisma.maintenance.deleteMany({ where: { equipmentId: id } });
       await prisma.equipment.deleteMany({ where: { id } });
     }
+    if (prisma && replacementId)
+      await prisma.equipment.deleteMany({ where: { id: replacementId } });
     if (app) await app.close();
   });
 
@@ -77,8 +80,8 @@ describe('Equipment API with PostgreSQL', () => {
     const history = await request(app.getHttpServer())
       .get(`/equipment/${id}/maintenances`)
       .expect(200);
-    expect(history.body).toHaveLength(1);
-    expect(history.body[0].hourMeter).toBe(250);
+    expect(history.body.data).toHaveLength(1);
+    expect(history.body.data[0].hourMeter).toBe(250);
     const changed = await request(app.getHttpServer())
       .patch(`/equipment/${id}`)
       .send({ type: 'DRILL', hourMeter: 550 })
@@ -100,14 +103,54 @@ describe('Equipment API with PostgreSQL', () => {
       600 - (maintenanceResponse.body.hourMeter as number),
     );
     await request(app.getHttpServer()).delete(`/equipment/${id}`).expect(204);
-    await request(app.getHttpServer()).get(`/equipment/${id}`).expect(404);
+    const removed = await request(app.getHttpServer())
+      .get(`/equipment/${id}`)
+      .expect(200);
+    expect(removed.body.deletedAt).not.toBeNull();
+    await request(app.getHttpServer())
+      .patch(`/equipment/${id}`)
+      .send({ hourMeter: 700 })
+      .expect(404);
     await request(app.getHttpServer())
       .post(`/equipment/${id}/maintenances`)
       .expect(404);
+    const oldHistory = await request(app.getHttpServer())
+      .get(`/equipment/${id}/maintenances?page=1&limit=1`)
+      .expect(200);
+    expect(oldHistory.body.data).toHaveLength(1);
+    expect(oldHistory.body.total).toBe(2);
+    const secondHistory = await request(app.getHttpServer())
+      .get(`/equipment/${id}/maintenances?page=2&limit=1`)
+      .expect(200);
+    expect(secondHistory.body.data).toHaveLength(1);
+    expect(secondHistory.body.data[0].id).not.toBe(oldHistory.body.data[0].id);
+    await request(app.getHttpServer()).delete(`/equipment/${id}`).expect(404);
     await request(app.getHttpServer())
-      .post('/equipment')
-      .send({ code, type: 'TRUCK', hourMeter: 0 })
-      .expect(409);
+      .patch(`/equipment/${id}`)
+      .send({ deletedAt: null })
+      .expect(400);
+    const candidates = await Promise.all(
+      [1, 2].map(() =>
+        request(app.getHttpServer())
+          .post('/equipment')
+          .send({ code, type: 'TRUCK', hourMeter: 0 }),
+      ),
+    );
+    expect(
+      candidates.map((response) => response.status).sort((a, b) => a - b),
+    ).toEqual([201, 409]);
+    replacementId = candidates.find((response) => response.status === 201)!.body
+      .id as string;
+    const newHistory = await request(app.getHttpServer())
+      .get(`/equipment/${replacementId}/maintenances`)
+      .expect(200);
+    expect(newHistory.body.total).toBe(0);
+    const page = await request(app.getHttpServer())
+      .get('/equipment?page=1&limit=1')
+      .expect(200);
+    expect(page.body.data).toHaveLength(1);
+    await request(app.getHttpServer()).get('/equipment?page=0').expect(400);
+    await request(app.getHttpServer()).get('/equipment?limit=101').expect(400);
     expect(await prisma.maintenance.count({ where: { equipmentId: id } })).toBe(
       2,
     );

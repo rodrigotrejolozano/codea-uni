@@ -20,7 +20,7 @@ enum EquipmentType {
 
 model Equipment {
   id        String        @id @default(uuid())
-  code      String        @unique
+  code      String
   type      EquipmentType
   hourMeter Int           @default(0)
   createdAt DateTime      @default(now())

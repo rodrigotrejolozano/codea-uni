@@ -10,7 +10,13 @@ describe('EquipmentService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EquipmentService,
-        { provide: PrismaService, useValue: { equipment: { findMany } } },
+        {
+          provide: PrismaService,
+          useValue: {
+            equipment: { findMany, count: vi.fn().mockResolvedValue(0) },
+            $transaction: (queries: Promise<unknown>[]) => Promise.all(queries),
+          },
+        },
       ],
     }).compile();
 
@@ -19,11 +25,18 @@ describe('EquipmentService', () => {
 
   it('returns equipment ordered by code', async () => {
     findMany.mockResolvedValue([]);
-    await expect(service.findAll()).resolves.toEqual([]);
+    await expect(service.findAll({ page: 1, limit: 10 })).resolves.toEqual({
+      data: [],
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+    });
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { deletedAt: null },
-        orderBy: { code: 'asc' },
+        orderBy: [{ code: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
+        skip: 0,
+        take: 10,
       }),
     );
   });
