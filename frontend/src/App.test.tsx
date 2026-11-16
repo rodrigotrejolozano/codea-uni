@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { api } from './api';
@@ -43,6 +44,7 @@ function renderApp() {
   return render(
     <QueryClientProvider client={client}>
       <App />
+      <Toaster duration={4000} />
     </QueryClientProvider>,
   );
 }
@@ -69,18 +71,20 @@ describe('Equipment screen', () => {
     ).toBeDisabled();
   });
 
-  it('shows separate date and ID columns and accessible action titles', async () => {
+  it('shows separate date columns without a visible ID and accessible action titles', async () => {
     vi.mocked(api.list).mockResolvedValue(paginated([truck]));
     renderApp();
     await screen.findByText('CAM-1');
     for (const name of [
-      'ID',
       'Fecha de registro',
       'Fecha de actualización',
       'Fecha de eliminación',
     ]) {
       expect(screen.getByRole('columnheader', { name })).toBeInTheDocument();
     }
+    expect(
+      screen.queryByRole('columnheader', { name: 'ID' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Editar CAM-1' }),
     ).toHaveAttribute('title', 'Editar');
@@ -147,6 +151,7 @@ describe('Equipment screen', () => {
       type: 'TRUCK',
       hourMeter: 250,
     });
+    expect(await screen.findByText('Equipo creado.')).toBeInTheDocument();
   });
   it('confirms maintenance and displays history', async () => {
     const user = userEvent.setup();
@@ -219,6 +224,7 @@ describe('Equipment screen', () => {
     await user.type(screen.getByLabelText('Horómetro (horas)'), '300');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
     expect(await screen.findByText('300 h')).toBeInTheDocument();
+    expect(await screen.findByText('Equipo editado.')).toBeInTheDocument();
     expect(api.update).toHaveBeenCalledWith('1', {
       code: 'CAM-1',
       type: 'TRUCK',

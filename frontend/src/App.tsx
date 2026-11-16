@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import type { Equipment, EquipmentInput } from './api';
 import { EquipmentTable } from './components/EquipmentTable';
 import { Pagination } from './components/Pagination';
@@ -18,7 +19,6 @@ function App() {
   const equipmentQuery = useEquipment(page);
   const mutations = useEquipmentMutations();
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [form, setForm] = useState<'closed' | 'new' | Equipment>('closed');
   const [historyEquipment, setHistoryEquipment] = useState<Equipment | null>(
     null,
@@ -32,10 +32,9 @@ function App() {
   async function run(action: () => Promise<void>, success?: string) {
     setBusy(true);
     setError('');
-    setNotice('');
     try {
       await action();
-      if (success) setNotice(success);
+      if (success) toast.success(success);
     } catch (err) {
       setError(
         err instanceof Error
@@ -59,12 +58,16 @@ function App() {
 
   async function save(data: EquipmentInput) {
     if (form === 'closed') return;
-    await run(async () => {
-      if (form === 'new') await mutations.create.mutateAsync(data);
-      else await mutations.update.mutateAsync({ id: form.id, data });
-      setForm('closed');
-      await refreshAfterSave('El equipo se guardó');
-    }, 'Equipo guardado.');
+    const creating = form === 'new';
+    await run(
+      async () => {
+        if (form === 'new') await mutations.create.mutateAsync(data);
+        else await mutations.update.mutateAsync({ id: form.id, data });
+        setForm('closed');
+        await refreshAfterSave('El equipo se guardó');
+      },
+      creating ? 'Equipo creado.' : 'Equipo editado.',
+    );
   }
 
   function maintain(item: Equipment) {
@@ -101,7 +104,7 @@ function App() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-5 py-12 text-slate-800">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-[1124px]">
         <header className="mb-8">
           <p className="text-xs font-bold tracking-wider text-emerald-700 uppercase">
             Gestión de activos
@@ -140,14 +143,6 @@ function App() {
           <p role="alert" className="mb-4 rounded bg-red-50 p-3 text-red-700">
             {error ||
               'No fue posible cargar los equipos. Verifica la conexión e inténtalo de nuevo.'}
-          </p>
-        )}
-        {notice && (
-          <p
-            role="status"
-            className="mb-4 rounded bg-emerald-50 p-3 text-emerald-800"
-          >
-            {notice}
           </p>
         )}
         {form !== 'closed' && (
