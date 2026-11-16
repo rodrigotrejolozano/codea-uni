@@ -9,6 +9,7 @@ export type Equipment = {
   requiresMaintenance: boolean;
   deletedAt: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 export type EquipmentInput = Pick<Equipment, 'code' | 'type' | 'hourMeter'>;
 export type Maintenance = {
@@ -51,7 +52,7 @@ const json = (method: string, body: EquipmentInput): RequestInit => ({
 });
 export const api = {
   list: (page: number, signal?: AbortSignal) =>
-    request<Paginated<Equipment>>(`/equipment?page=${page}&limit=10`, {
+    request<Paginated<Equipment>>(`/equipment?page=${page}&limit=5`, {
       signal,
     }),
   create: (data: EquipmentInput) =>
@@ -65,7 +66,7 @@ export const api = {
     request<void>(`/equipment/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   history: (id: string, page: number, signal?: AbortSignal) =>
     request<Paginated<Maintenance>>(
-      `/equipment/${encodeURIComponent(id)}/maintenances?page=${page}&limit=10`,
+      `/equipment/${encodeURIComponent(id)}/maintenances?page=${page}&limit=5`,
       { signal },
     ),
   maintain: (id: string) =>

@@ -25,12 +25,13 @@ const truck = {
   requiresMaintenance: true,
   deletedAt: null,
   createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-02T00:00:00Z',
 };
 
 const paginated = <T,>(data: T[]) => ({
   data,
   page: 1,
-  limit: 10,
+  limit: 5,
   total: data.length,
   totalPages: data.length ? 1 : 0,
 });
@@ -56,7 +57,68 @@ describe('Equipment screen', () => {
     expect(
       await screen.findByText('No hay equipos registrados.'),
     ).toBeInTheDocument();
+    const pagination = screen.getByRole('navigation', {
+      name: 'Paginación de equipos',
+    });
+    expect(within(pagination).getByText('0 equipos')).toBeInTheDocument();
+    expect(
+      within(pagination).getByRole('button', { name: 'Anterior' }),
+    ).toBeDisabled();
+    expect(
+      within(pagination).getByRole('button', { name: 'Siguiente' }),
+    ).toBeDisabled();
   });
+
+  it('shows separate date and ID columns and accessible action titles', async () => {
+    vi.mocked(api.list).mockResolvedValue(paginated([truck]));
+    renderApp();
+    await screen.findByText('CAM-1');
+    for (const name of [
+      'ID',
+      'Fecha de registro',
+      'Fecha de actualización',
+      'Fecha de eliminación',
+    ]) {
+      expect(screen.getByRole('columnheader', { name })).toBeInTheDocument();
+    }
+    expect(
+      screen.getByRole('button', { name: 'Editar CAM-1' }),
+    ).toHaveAttribute('title', 'Editar');
+    const pagination = screen.getByRole('navigation', {
+      name: 'Paginación de equipos',
+    });
+    expect(
+      within(pagination).getByText('Página 1 de 1 · 1 equipos'),
+    ).toBeInTheDocument();
+    expect(
+      within(pagination).getByRole('button', { name: 'Siguiente' }),
+    ).toBeDisabled();
+  });
+
+  it.each([3, 5])(
+    'keeps pagination visible with %s items on one page',
+    async (total) => {
+      vi.mocked(api.list).mockResolvedValue({
+        ...paginated([truck]),
+        total,
+        totalPages: 1,
+      });
+      renderApp();
+      await screen.findByText('CAM-1');
+      const pagination = screen.getByRole('navigation', {
+        name: 'Paginación de equipos',
+      });
+      expect(
+        within(pagination).getByText(`Página 1 de 1 · ${total} equipos`),
+      ).toBeInTheDocument();
+      expect(
+        within(pagination).getByRole('button', { name: 'Anterior' }),
+      ).toBeDisabled();
+      expect(
+        within(pagination).getByRole('button', { name: 'Siguiente' }),
+      ).toBeDisabled();
+    },
+  );
   it('shows a loading error', async () => {
     vi.mocked(api.list).mockRejectedValue(new Error('offline'));
     renderApp();
@@ -274,7 +336,7 @@ describe('Equipment screen', () => {
         },
       ],
       page,
-      limit: 10,
+      limit: 5,
       total: 11,
       totalPages: 2,
     }));

@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import type { Equipment, EquipmentInput, EquipmentType } from './api';
+import type { Equipment, EquipmentInput } from './api';
+import { EquipmentTable } from './components/EquipmentTable';
+import { Pagination } from './components/Pagination';
 import { EquipmentForm } from './components/EquipmentForm';
 import {
   useEquipment,
@@ -7,11 +9,6 @@ import {
   useHistory,
 } from './equipment/queries';
 
-const labels: Record<EquipmentType, string> = {
-  TRUCK: 'Camión',
-  EXCAVATOR: 'Excavadora',
-  DRILL: 'Perforadora',
-};
 const buttonClass =
   'cursor-pointer rounded bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -185,125 +182,25 @@ function App() {
           ) : equipment.length === 0 ? (
             <p>No hay equipos registrados.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr>
-                    {[
-                      'Código',
-                      'Tipo',
-                      'Horómetro',
-                      'Estado',
-                      'Mantenimiento',
-                      'Acciones',
-                    ].map((column) => (
-                      <th
-                        key={column}
-                        className="border-b border-slate-200 p-3"
-                      >
-                        {column}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {equipment.map((item) => (
-                    <tr key={item.id}>
-                      <td className="border-b border-slate-100 p-3">
-                        {item.code}
-                      </td>
-                      <td className="border-b border-slate-100 p-3">
-                        {labels[item.type]}
-                      </td>
-                      <td className="border-b border-slate-100 p-3">
-                        {item.hourMeter} h
-                      </td>
-                      <td className="border-b border-slate-100 p-3">
-                        {item.deletedAt ? 'Eliminado' : 'Activo'}
-                        <div className="text-xs text-slate-500">
-                          Creado:{' '}
-                          {new Date(item.createdAt).toLocaleDateString('es')} ·
-                          ID: {item.id.slice(0, 8)}
-                        </div>
-                      </td>
-                      <td className="border-b border-slate-100 p-3">
-                        <strong
-                          className={
-                            item.deletedAt
-                              ? 'text-slate-500'
-                              : item.requiresMaintenance
-                                ? 'text-red-700'
-                                : 'text-emerald-700'
-                          }
-                        >
-                          {item.deletedAt
-                            ? 'No aplica'
-                            : item.requiresMaintenance
-                              ? 'Requiere mantenimiento'
-                              : 'Al día'}
-                        </strong>
-                        <div>
-                          {!item.deletedAt &&
-                            `${item.hoursSinceMaintenance} / ${item.intervalHours} h`}
-                        </div>
-                      </td>
-                      <td className="border-b border-slate-100 p-3">
-                        <div className="flex min-w-48 flex-wrap gap-2">
-                          {(item.deletedAt
-                            ? [['Historial', () => showHistory(item)]]
-                            : [
-                                ['Editar', () => setForm(item)],
-                                [
-                                  'Registrar mantenimiento',
-                                  () => maintain(item),
-                                ],
-                                ['Historial', () => showHistory(item)],
-                                ['Eliminar', () => remove(item)],
-                              ]
-                          ).map(([label, action]) => (
-                            <button
-                              key={label as string}
-                              type="button"
-                              disabled={busy}
-                              onClick={action as () => void}
-                              aria-label={`${label as string} ${item.code}`}
-                              className="cursor-pointer rounded border border-slate-300 px-2 py-1 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {label as string}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <EquipmentTable
+              equipment={equipment}
+              busy={busy}
+              onEdit={setForm}
+              onMaintain={maintain}
+              onHistory={showHistory}
+              onRemove={remove}
+            />
           )}
-          {equipmentQuery.data && equipmentQuery.data.totalPages > 1 && (
-            <nav
-              aria-label="Paginación de equipos"
-              className="mt-4 flex items-center gap-3"
-            >
-              <button
-                className="cursor-pointer rounded border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={page <= 1 || busy}
-                onClick={() => setPage(page - 1)}
-              >
-                Anterior
-              </button>
-              <span>
-                Página {page} de {equipmentQuery.data.totalPages} ·{' '}
-                {equipmentQuery.data.total} equipos
-              </span>
-              <button
-                className="cursor-pointer rounded border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={page >= equipmentQuery.data.totalPages || busy}
-                onClick={() => setPage(page + 1)}
-              >
-                Siguiente
-              </button>
-            </nav>
+          {equipmentQuery.data && (
+            <Pagination
+              label="Paginación de equipos"
+              page={page}
+              totalPages={equipmentQuery.data.totalPages}
+              total={equipmentQuery.data.total}
+              unit="equipos"
+              busy={busy}
+              onPageChange={setPage}
+            />
           )}
         </section>
         {historyEquipment && (
@@ -351,30 +248,15 @@ function App() {
                 ))}
               </ul>
             )}
-            {history.data && history.data.totalPages > 1 && (
-              <nav
-                aria-label="Paginación de historial"
-                className="mt-4 flex items-center gap-3"
-              >
-                <button
-                  className="cursor-pointer rounded border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={historyPage <= 1}
-                  onClick={() => setHistoryPage(historyPage - 1)}
-                >
-                  Anterior
-                </button>
-                <span>
-                  Página {historyPage} de {history.data.totalPages} ·{' '}
-                  {history.data.total} registros
-                </span>
-                <button
-                  className="cursor-pointer rounded border px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={historyPage >= history.data.totalPages}
-                  onClick={() => setHistoryPage(historyPage + 1)}
-                >
-                  Siguiente
-                </button>
-              </nav>
+            {history.data && (
+              <Pagination
+                label="Paginación de historial"
+                page={historyPage}
+                totalPages={history.data.totalPages}
+                total={history.data.total}
+                unit="registros"
+                onPageChange={setHistoryPage}
+              />
             )}
           </section>
         )}
