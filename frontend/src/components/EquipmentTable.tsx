@@ -51,7 +51,6 @@ export function EquipmentTable({
           <tr>
             {[
               'Código',
-              'ID',
               'Tipo',
               'Horómetro',
               'Estado',
@@ -109,9 +108,6 @@ export function EquipmentTable({
                 className="block overflow-hidden rounded-lg border border-slate-200 md:table-row md:rounded-none md:border-0"
               >
                 <Cell label="Código">{item.code}</Cell>
-                <Cell label="ID">
-                  <span title={item.id}>{item.id.slice(0, 8)}</span>
-                </Cell>
                 <Cell label="Tipo">{labels[item.type]}</Cell>
                 <Cell label="Horómetro">{item.hourMeter} h</Cell>
                 <Cell label="Estado">
